@@ -210,6 +210,7 @@ func (s *Server) Stop() {
 
 // Cribbed from https://github.com/nodkz/mongodb-memory-server/blob/master/packages/mongodb-memory-server-core/src/util/MongoInstance.ts#L206
 var reReady = regexp.MustCompile(`waiting for connections on port (\d+)`)
+var reReadyV44 = regexp.MustCompile(`waiting for connections","attr":\{"port":(\d+)`)
 var reAlreadyInUse = regexp.MustCompile("addr already in use")
 var reAlreadyRunning = regexp.MustCompile("mongod already running")
 var rePermissionDenied = regexp.MustCompile("mongod permission denied")
@@ -243,6 +244,14 @@ func stdoutHandler(log *strikememongolog.Logger) (io.Writer, <-chan error, <-cha
 				downcaseLine := strings.ToLower(line)
 
 				if match := reReady.FindStringSubmatch(downcaseLine); match != nil {
+					port, err := strconv.Atoi(match[1])
+					if err != nil {
+						errChan <- errors.New("Could not parse port from mongod log line: " + downcaseLine)
+					} else {
+						portChan <- port
+					}
+					haveSentMessage = true
+				} else if match = reReadyV44.FindStringSubmatch(downcaseLine); match != nil {
 					port, err := strconv.Atoi(match[1])
 					if err != nil {
 						errChan <- errors.New("Could not parse port from mongod log line: " + downcaseLine)
